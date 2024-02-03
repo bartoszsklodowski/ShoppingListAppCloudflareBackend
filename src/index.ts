@@ -10,11 +10,11 @@ interface Bindings {
 // Define type alias; available via `realm-web`
 type Document = globalThis.Realm.Services.MongoDB.Document;
 
-// Declare the interface for a "todos" document
-interface Todo extends Document {
-    owner: string;
-    done: boolean;
-    todo: string;
+// Declare the interface for a "shopping_list" document
+interface ShoppingList extends Document {
+    name: string;
+    purchased: boolean;
+    quantity: string;
 }
 
 let App: Realm.App;
@@ -28,10 +28,11 @@ const worker: ExportedHandler<Bindings> = {
 
         const method = req.method;
         const path = url.pathname.replace(/[/]$/, '');
-        const todoID = url.searchParams.get('id') || '';
+        const itemID = url.searchParams.get('id') || '';
+        
 
-        if (path !== '/api/todos') {
-            return utils.toError(`Unknown "${path}" URL; try "/api/todos" instead.`, 404);
+        if (path !== '/api/shopping_list') {
+            return utils.toError(`Unknown "${path}" URL; try "/api/shopping_list" instead.`, 404);
         }
 
         const token = req.headers.get('authorization');
@@ -46,56 +47,108 @@ const worker: ExportedHandler<Bindings> = {
             return utils.toError('Error with authentication.', 500);
         }
 
-        // Grab a reference to the "cloudflare.todos" collection
-        const collection = client.db('cloudflare').collection<Todo>('todos');
+        // Grab a reference to the "cloudflare.shopping_list" collection
+        const collection = client.db('cloudflare').collection<ShoppingList>('shopping_list');
 
         try {
             if (method === 'GET') {
-                if (todoID) {
-                    // GET /api/todos?id=XXX
+                if (itemID) {
+                    // GET /api/shopping_list?id=XXX
                     return utils.reply(
                         await collection.findOne({
-                            _id: new ObjectId(todoID)
+                            _id: new ObjectId(itemID)
                         })
                     );
                 }
 
-                // GET /api/todos
+                // GET /api/shopping_list
                 return utils.reply(
                     await collection.find()
                 );
             }
 
-            // POST /api/todos
+            // POST /api/shopping_list
             if (method === 'POST') {
-                const {todo} = await req.json();
+                const {name, purchased, quantity} = await req.json();
                 return utils.reply(
                     await collection.insertOne({
-                        owner: user.id,
-                        done: false,
-                        todo: todo,
+                        name: name,
+                        purchased: purchased || false,
+                        quantity: quantity,
                     })
                 );
             }
 
-            // PATCH /api/todos?id=XXX&done=true
+            // PATCH /api/shopping_list?id=XXX/toggle
             if (method === 'PATCH') {
-                return utils.reply(
-                    await collection.updateOne({
-                        _id: new ObjectId(todoID)
-                    }, {
-                        $set: {
-                            done: url.searchParams.get('done') === 'true'
-                        }
-                    })
-                );
+                try {
+                    // Fetch the document from the MongoDB collection
+                    const existingDocument = await collection.findOne({ _id: new ObjectId(itemID) });
+
+                    // If the document exists, toggle the 'purchased' value
+                    if (existingDocument) {
+                        const updatedPurchasedValue = !existingDocument.purchased;
+
+                        // Update the document in the MongoDB collection
+                        const result = await collection.updateOne(
+                            { _id: new ObjectId(itemID) },
+                            { $set: { purchased: updatedPurchasedValue } }
+                        );
+
+                        // Handle the result as needed
+                        return utils.reply(result);
+                    } else {
+                        // Handle the case when the document does not exist
+                        return utils.toError('Document not found', 404);
+                    }
+                } catch (err) {
+                    // Handle errors
+                    return utils.toError('Internal Server Error', 500);
+                }
             }
 
-            // DELETE /api/todos?id=XXX
+            if (method === 'PUT') {
+                try {
+                    // Fetch the updated fields from the request body
+                    const { name, purchased, quantity } = await req.json();
+        
+                    // Construct the update object based on provided fields
+                    const updateObject: ShoppingList = {
+                        name, purchased, quantity,
+                        _id: undefined
+                    }; 
+        
+                    if (name !== undefined) {
+                        updateObject.name = name;
+                    }
+        
+                    if (purchased !== undefined) {
+                        updateObject.purchased = purchased;
+                    }
+        
+                    if (quantity !== undefined) {
+                        updateObject.quantity = quantity;
+                    }
+        
+                    // Update the document in the MongoDB collection
+                    const result = await collection.updateOne(
+                        { _id: new ObjectId(itemID) },
+                        { $set: updateObject }
+                    );
+        
+                    // Handle the result as needed
+                    return utils.reply(result);
+                } catch (err) {
+                    // Handle errors
+                    return utils.toError('Internal Server Error', 500);
+                }
+            }
+
+            // DELETE /api/shopping_list?id=XXX
             if (method === 'DELETE') {
                 return utils.reply(
                     await collection.deleteOne({
-                        _id: new ObjectId(todoID)
+                        _id: new ObjectId(itemID)
                     })
                 );
             }
