@@ -30,6 +30,7 @@ const worker: ExportedHandler<Bindings> = {
         const path = url.pathname.replace(/[/]$/, '');
         const itemID = url.searchParams.get('id') || '';
         
+        
 
         if (path !== '/api/shopping_list') {
             return utils.toError(`Unknown "${path}" URL; try "/api/shopping_list" instead.`, 404);
@@ -52,14 +53,14 @@ const worker: ExportedHandler<Bindings> = {
 
         try {
             if (method === 'GET') {
-                if (itemID) {
-                    // GET /api/shopping_list?id=XXX
-                    return utils.reply(
-                        await collection.findOne({
-                            _id: new ObjectId(itemID)
-                        })
-                    );
-                }
+                    if (itemID) {
+                        // GET /api/shopping_list?id=XXX
+                        return utils.reply(
+                            await collection.findOne({
+                                _id: new ObjectId(itemID)
+                            })
+                        );
+                    }
 
                 // GET /api/shopping_list
                 return utils.reply(
@@ -79,7 +80,7 @@ const worker: ExportedHandler<Bindings> = {
                 );
             }
 
-            // PATCH /api/shopping_list?id=XXX/toggle
+            // PATCH /api/shopping_list?id=XXX
             if (method === 'PATCH') {
                 try {
                     // Fetch the document from the MongoDB collection
@@ -87,19 +88,18 @@ const worker: ExportedHandler<Bindings> = {
 
                     // If the document exists, toggle the 'purchased' value
                     if (existingDocument) {
-                        const updatedPurchasedValue = !existingDocument.purchased;
 
                         // Update the document in the MongoDB collection
                         const result = await collection.updateOne(
                             { _id: new ObjectId(itemID) },
-                            { $set: { purchased: updatedPurchasedValue } }
+                            { $set: { purchased: !existingDocument.purchased } }
                         );
 
                         // Handle the result as needed
                         return utils.reply(result);
                     } else {
-                        // Handle the case when the document does not exist
-                        return utils.toError('Document not found', 404);
+                        // Handle the case when the item does not exist
+                        return utils.toError('Item not found', 404);
                     }
                 } catch (err) {
                     // Handle errors
@@ -107,35 +107,23 @@ const worker: ExportedHandler<Bindings> = {
                 }
             }
 
+            // PUT /api/shopping_list?id=XXX
             if (method === 'PUT') {
                 try {
                     // Fetch the updated fields from the request body
                     const { name, purchased, quantity } = await req.json();
-        
+
                     // Construct the update object based on provided fields
                     const updateObject: ShoppingList = {
-                        name, purchased, quantity,
-                        _id: undefined
+                        name, purchased, quantity   
                     }; 
-        
-                    if (name !== undefined) {
-                        updateObject.name = name;
-                    }
-        
-                    if (purchased !== undefined) {
-                        updateObject.purchased = purchased;
-                    }
-        
-                    if (quantity !== undefined) {
-                        updateObject.quantity = quantity;
-                    }
-        
+                    
                     // Update the document in the MongoDB collection
                     const result = await collection.updateOne(
                         { _id: new ObjectId(itemID) },
                         { $set: updateObject }
                     );
-        
+                    
                     // Handle the result as needed
                     return utils.reply(result);
                 } catch (err) {
