@@ -1,7 +1,7 @@
 name = "mongo-realm-worker"
 type = "javascript"
 
-account_id = "CLOUDFLARE_ACCOUNT_ID"
+account_id = "fe4acbe203008f75f66fecb89df5e283"
 workers_dev = true # or zone_id = "<ZONE ID>" if you have one
 
 [build]
@@ -13,4 +13,4 @@ main = "./index.mjs"
 format = "modules"
 
 [vars]
-REALM_APPID = "MONGODB_REALM_APPID"
+REALM_APPID = "cloudflare-rplef"
