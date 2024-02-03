@@ -47,8 +47,8 @@ const worker: ExportedHandler<Bindings> = {
             return utils.toError('Error with authentication.', 500);
         }
 
-        // Grab a reference to the "cloudflare.shopping_list" collection
-        const collection = client.db('cloudflare').collection<ShoppingList>('shopping_list');
+        // Grab a reference to the "Cloudflare.shopping_list" collection
+        const collection = client.db('Cloudflare').collection<ShoppingList>('shopping_list');
 
         try {
             if (method === 'GET') {
